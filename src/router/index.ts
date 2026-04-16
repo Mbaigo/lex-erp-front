@@ -31,8 +31,14 @@ const router = createRouter({
       component: () => import('../views/customer-service/client/ClientsView.vue'),
     },
     {
-      path: '/clients/fiches-mesures',
+      path: '/clients/:id/fiches-mesures',
       name: 'fiches-mesures',
+      // Cette route affichera toutes les fiches de mesures globales, ou tu peux la lier à un client spécifique plus tard
+      component: () => import('../views/customer-service/client/ClientFichesMesuresView.vue'),
+    },
+    {
+      path: '/fiches-mesures',
+      name: 'all-fiches-mesures',
       // Cette route affichera toutes les fiches de mesures globales, ou tu peux la lier à un client spécifique plus tard
       component: () => import('../views/customer-service/fiche-mesure/FichesMesuresView.vue'),
     },

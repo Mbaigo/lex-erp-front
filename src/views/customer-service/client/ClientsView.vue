@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useClientStore } from '@/stores/useClientStore'
 import { clientApi } from '@/services/customer-api/ClientService'
 import { Genre, type ClientResponseDTO, type ClientRequestDTO } from '@/models/customer-service-api'
 import BaseTable from '@/components/ui/BaseTable.vue'
@@ -7,6 +9,10 @@ import BasePagination from '@/components/ui/BasePaginationView.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInputView.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import axios from 'axios'
+
+const router = useRouter()
+const clientStore = useClientStore()
 
 // --- ÉTATS RÉACTIFS TYPÉS ---
 const clients = ref<ClientResponseDTO[]>([])
@@ -23,6 +29,7 @@ const totalElements = ref(0)
 const colonnes = [
   { key: 'nom', label: 'Nom' },
   { key: 'prenom', label: 'Prénom' },
+  { key: 'adresse', label: 'Adresse' },
   { key: 'telephone', label: 'Téléphone' },
   { key: 'email', label: 'Email' },
   { key: 'actions', label: '' },
@@ -47,14 +54,13 @@ const formulaireClient = ref<ClientRequestDTO>({
 
 // --- LOGIQUE MÉTIER ---
 
-// 1. Charger la liste paginée (Déplacé ici car utilisé par les autres fonctions)
 const chargerClients = async (numeroPage = 0) => {
   if (isLoading.value) return
   isLoading.value = true
   isSearchMode.value = false
 
   try {
-    const reponse = await clientApi.getAllClients(numeroPage, 10)
+    const reponse = await clientApi.getAllClients(numeroPage, 5)
     clients.value = reponse.data.content
     pageCourante.value = reponse.data.number
     totalPages.value = reponse.data.totalPages
@@ -66,7 +72,6 @@ const chargerClients = async (numeroPage = 0) => {
   }
 }
 
-// 2. Ouvrir la modale pour Création
 const ouvrirModalCreation = () => {
   idClientEnEdition.value = null
   formulaireClient.value = {
@@ -82,7 +87,6 @@ const ouvrirModalCreation = () => {
   isModalOpen.value = true
 }
 
-// 3. Ouvrir la modale pour Édition
 const ouvrirModalEdition = (client: ClientResponseDTO) => {
   idClientEnEdition.value = client.id
   formulaireClient.value = {
@@ -98,7 +102,6 @@ const ouvrirModalEdition = (client: ClientResponseDTO) => {
   isModalOpen.value = true
 }
 
-// 4. Enregistrer (Création ou Mise à jour)
 const enregistrerClient = async () => {
   erreursFormulaire.value = {}
   if (!formulaireClient.value.nom) erreursFormulaire.value.nom = 'Le nom est obligatoire'
@@ -114,28 +117,24 @@ const enregistrerClient = async () => {
     } else {
       await clientApi.createClient(formulaireClient.value)
     }
-
     isModalOpen.value = false
     chargerClients(pageCourante.value)
-  } catch (erreur: any) {
+  } catch (erreur) {
     console.error("Erreur d'enregistrement", erreur)
-    if (erreur.response?.data?.errors) {
-      erreursFormulaire.value = erreur.response.data.errors
+    if (axios.isAxiosError(erreur)) {
+      if (erreur.response?.data?.errors) {
+        erreursFormulaire.value = erreur.response.data.errors
+      }
     }
   } finally {
     isSubmitting.value = false
   }
 }
 
-// 5. Recherche rapide par téléphone
 const chercherClient = async () => {
-  if (!searchQuery.value.trim()) {
-    return chargerClients(0)
-  }
-
+  if (!searchQuery.value.trim()) return chargerClients(0)
   isLoading.value = true
   isSearchMode.value = true
-
   try {
     const reponse = await clientApi.searchByTelephone(searchQuery.value)
     clients.value = reponse.data ? [reponse.data] : []
@@ -149,13 +148,17 @@ const chercherClient = async () => {
   }
 }
 
-// 6. Quitter le mode recherche
 const reinitialiserRecherche = () => {
   searchQuery.value = ''
   chargerClients(0)
 }
 
-// Chargement initial au montage
+// NAVIGATION AVEC PINIA
+const allerAuxMensurations = (client: ClientResponseDTO) => {
+  clientStore.setSelectedClient(client)
+  router.push(`/clients/${client.id}/fiches-mesures`)
+}
+
 onMounted(() => {
   chargerClients(0)
 })
@@ -181,27 +184,27 @@ onMounted(() => {
         />
       </div>
       <div class="flex gap-2 mb-4">
-        <BaseButton variant="secondary" @click="chercherClient" :isLoading="isLoading">
-          🔍 Chercher
-        </BaseButton>
-        <BaseButton v-if="isSearchMode" variant="secondary" @click="reinitialiserRecherche">
-          ✖ Annuler
-        </BaseButton>
+        <BaseButton variant="secondary" @click="chercherClient" :isLoading="isLoading"
+          >🔍 Chercher</BaseButton
+        >
+        <BaseButton v-if="isSearchMode" variant="secondary" @click="reinitialiserRecherche"
+          >✖ Annuler</BaseButton
+        >
       </div>
     </div>
 
     <BaseTable :columns="colonnes" :data="clients">
       <template #cell-actions="{ row }">
         <div class="flex justify-end space-x-3 text-sm">
-          <router-link
-            :to="`/clients/${row.id}/fiches-mesures`"
+          <button
+            @click="allerAuxMensurations(row)"
             class="text-indigo-600 hover:text-indigo-900 font-medium"
           >
             📏 Mensurations
-          </router-link>
+          </button>
           <button
             @click="ouvrirModalEdition(row)"
-            class="text-gray-600 hover:text-gray-900 font-medium"
+            class="text-gray-600 hover:text-gray-900 font-medium border-l border-gray-300 pl-3"
           >
             ✏️ Éditer
           </button>
@@ -249,7 +252,6 @@ onMounted(() => {
             <option v-for="g in optionsGenre" :key="g" :value="g">{{ g }}</option>
           </select>
         </div>
-
         <BaseInput
           v-model="formulaireClient.telephone"
           label="Téléphone *"

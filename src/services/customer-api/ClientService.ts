@@ -25,4 +25,8 @@ export const clientApi = {
   updateClient(id: number, data: ClientRequestDTO) {
     return api.put<ClientResponseDTO>(`/clients/${id}`, data)
   },
+  // GET /api/v1/clients/{id}
+  getClientById(id: number) {
+    return api.get<ClientResponseDTO>(`/clients/${id}`);
+  },
 }

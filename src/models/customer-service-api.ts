@@ -2,14 +2,17 @@ export interface FicheMesureResponseDTO {
   id: number
   clientId: number
   nomProjet: string
+  clientNom: string
+  clientPrenom: string
   datePrise: string
-  valeurs: Record<string, number>
+  mesures: Record<string, number>
+  remarquesSpecifiques: string
 }
 export interface FicheMesureRequestDTO {
   clientId: number
   nomProjet: string
-  datePrise: string
-  valeurs: Record<string, number>
+  mesures: Record<string, number>
+  remarquesSpecifiques: string
 }
 // Client DTOs
 

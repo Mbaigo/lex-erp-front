@@ -64,7 +64,7 @@ const toggleMenu = (menuName: string) => {
                 👥 Liste des Clients
               </router-link>
               <router-link
-                to="/clients/fiches-mesures"
+                to="/fiches-mesures"
                 class="block px-4 py-2 text-sm rounded text-gray-400 hover:text-white hover:bg-gray-800 transition"
                 active-class="text-indigo-400 font-semibold"
               >
