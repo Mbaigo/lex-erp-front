@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { userManager } from './oauth/AuthService'
 
 // On crée une instance configurée pour pointer vers ton API Gateway
 export const api = axios.create({
@@ -7,14 +8,16 @@ export const api = axios.create({
 })
 
 // INTERCEPTEUR : Le "videur" qui ajoute le jeton Keycloak à chaque requête
-api.interceptors.request.use((config) => {
-  // ⚠️ TEMPORAIRE : Comme nous n'avons pas encore d'écran de connexion en Vue.js,
-  // va copier le token "eyJ..." que tu utilises dans Bruno et colle-le ici :
-  const token = import.meta.env.VITE_TEMP_KEYCLOAK_TOKEN
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-
-  return config
-})
+api.interceptors.request.use(
+  async (config) => {
+    const user = await userManager.getUser()
+    if (user && user.access_token) {
+      config.headers.Authorization = `Bearer ${user.access_token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  },
+)
+export default api
