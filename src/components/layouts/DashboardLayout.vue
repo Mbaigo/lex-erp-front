@@ -253,6 +253,48 @@ const toggleMenu = (menuName: string) => {
           </div>
         </div>
 
+        <div class="group" @mouseenter="toggleMenu('stock')" @click="toggleMenu('stock')">
+          <div
+            class="px-4 py-2 mt-2 rounded flex justify-between items-center cursor-pointer text-gray-400 hover:bg-gray-800 hover:text-white transition"
+            :class="{ 'text-white': activeMenu === 'stock' }"
+          >
+            <span class="text-xs font-semibold uppercase tracking-wider">📦 Stock</span>
+            <svg
+              :class="{ 'rotate-180': activeMenu === 'stock' }"
+              class="w-4 h-4 transition-transform duration-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              ></path>
+            </svg>
+          </div>
+          <div
+            class="overflow-hidden transition-all duration-300 ease-in-out"
+            :class="activeMenu === 'stock' ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="pl-4 pr-2 py-1 space-y-1 border-l-2 border-gray-800 ml-6 mt-1">
+              <router-link
+                to="/catalogue/categories"
+                class="block px-4 py-2 text-sm rounded text-gray-400 hover:text-white hover:bg-gray-800 transition"
+                active-class="text-indigo-400 font-semibold"
+                >🗂️ Categories</router-link
+              >
+              <router-link
+                to="/catalogue/articles"
+                class="block px-4 py-2 text-sm rounded text-gray-400 hover:text-white hover:bg-gray-800 transition"
+                active-class="text-indigo-400 font-semibold"
+                >🧵 Articles</router-link
+              >
+            </div>
+          </div>
+        </div>
+
         <div class="group" @mouseenter="toggleMenu('admin')" @click="toggleMenu('admin')">
           <div
             class="px-4 py-2 mt-2 rounded flex justify-between items-center cursor-pointer text-gray-400 hover:bg-gray-800 hover:text-white transition"
@@ -286,10 +328,10 @@ const toggleMenu = (menuName: string) => {
                 >👥 Utilisateurs</router-link
               >
               <router-link
-                to="/articles"
+                to="/roles"
                 class="block px-4 py-2 text-sm rounded text-gray-400 hover:text-white hover:bg-gray-800 transition"
                 active-class="text-indigo-400 font-semibold"
-                >📦 Stock Articles</router-link
+                >🔐 Rôles</router-link
               >
             </div>
           </div>

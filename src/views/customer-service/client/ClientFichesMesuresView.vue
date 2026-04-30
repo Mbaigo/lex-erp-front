@@ -308,7 +308,7 @@ onMounted(chargerDonnees)
               @click="ajouterLigne"
               class="text-sm bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-semibold py-1 px-3 rounded transition"
             >
-              + Ajouter une ligne
+              + Ajouter
             </button>
           </div>
 
@@ -366,7 +366,7 @@ onMounted(chargerDonnees)
       <template #footer>
         <BaseButton variant="secondary" @click="isModalFormOpen = false">Annuler</BaseButton>
         <BaseButton variant="primary" @click="enregistrerFiche" :isLoading="isSubmitting">
-          {{ idFicheEnEdition ? 'Mettre à jour' : 'Enregistrer le projet' }}
+          {{ idFicheEnEdition ? 'Enregistrer' : 'Ajouter' }}
         </BaseButton>
       </template>
     </BaseModal>

@@ -171,7 +171,7 @@ onMounted(() => {
         <h1 class="text-2xl font-bold text-gray-800">👥 Annuaire Clients</h1>
         <p class="text-gray-500 text-sm mt-1">Base de clientèle de l'atelier Lex Couture</p>
       </div>
-      <BaseButton variant="primary" @click="ouvrirModalCreation">+ Nouveau Client</BaseButton>
+      <BaseButton variant="primary" @click="ouvrirModalCreation">+ Nouveau</BaseButton>
     </div>
 
     <div class="flex gap-4 mb-6 items-end bg-gray-50 p-4 rounded-lg">

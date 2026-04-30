@@ -64,6 +64,21 @@ const router = createRouter({
       // Cette route affichera toutes les fiches de mesures globales, ou tu peux la lier à un client spécifique plus tard
       component: () => import('../views/customer-service/fiche-mesure/FichesMesuresView.vue'),
     },
+
+    //Catégories et articles de catalogue service
+
+    {
+      path: '/catalogue/categories',
+      name: 'all-categories-articles',
+      // Cette route affichera toutes les fiches de mesures globales, ou tu peux la lier à un client spécifique plus tard
+      component: () => import('../views/catalog-service/CategoriesArticlesView.vue'),
+    },
+    {
+      path: '/catalogue/articles',
+      name: 'all-articles',
+      // Cette route affichera toutes les fiches de mesures globales, ou tu peux la lier à un client spécifique plus tard
+      component: () => import('../views/catalog-service/ArticlesView.vue'),
+    },
   ],
 })
 

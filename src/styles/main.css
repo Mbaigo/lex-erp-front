@@ -1,1 +1,13 @@
 @import 'tailwindcss';
+
+/* Changer la couleur de fond des toasts d'erreur */
+.Vue-Toastification__toast--error {
+  background-color: #db7979;
+  border-radius: 15px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Personnaliser la barre de progression */
+.Vue-Toastification__progress-bar {
+  background: rgba(7, 16, 99, 0.7);
+}
