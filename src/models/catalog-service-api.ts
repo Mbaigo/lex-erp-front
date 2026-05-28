@@ -14,25 +14,32 @@ export interface CategorieResponse {
 export interface ArticleRequest {
   reference: string // max: 50
   designation: string // max: 150
-  quantiteEnStock: number // min: 0
-  prixAchat: number // min: 0
+  stockInitial: number // Remplace "stockInitial" (min: 0)
+  prixUnitaire: number // min: 0
   seuilAlerte: number // min: 0
   uniteMesure: string // ex: 'METRE', 'PIECE', 'LITRE'
-  categorieId: number| null
-  version: number // Pour la gestion de la concurrence optimiste
+  categorieId: number
+  version?: number // Optionnel à la création, requis à la mise à jour pour le verrouillage optimiste
 }
 
 export interface ArticleResponse {
   id: number
   reference: string
   designation: string
-  quantiteEnStock: number
-  prixAchat: number
-  seuilAlerte: number
-  uniteMesure: string
-  enAlerte: boolean // Ce champ doit être calculé par le Backend (DTO)
-  categorie: CategorieResponse
-  version: number
+  stockActuel: number // Remplace "stockInitial" (min: 0)
+  prixUnitaire: number // min: 0
+  seuilAlerte: number // min: 0
+  uniteMesure: string // ex: 'METRE', 'PIECE', 'LITRE'
+  enAlerte: boolean // Calculé par le backend
+  version: number // Crucial pour l'US 3.3 (Optimistic Locking)
+
+  // -- Côté relation Catégorie --
+  // Si ton Backend (MapStruct) renvoie un objet imbriqué :
+  categorie?: CategorieResponse
+
+  // OU BIEN, si ton MapStruct renvoie des champs à plat (comme on l'avait configuré plus tôt) :
+  categorieId?: number
+  categorieNom?: string
 }
 
 export interface RestockItemRequest {

@@ -7,6 +7,10 @@ const props = defineProps({
     type: String,
     default: 'primary', // Options possibles : 'primary', 'secondary', 'danger'
   },
+  color: {
+    type: String,
+    default: undefined, // Si défini, surcharge les couleurs du variant
+  },
   isLoading: {
     type: Boolean,
     default: false,
@@ -20,7 +24,7 @@ const props = defineProps({
 // 2. LES EMITS : Les actions que le bouton renvoie
 const emit = defineEmits(['click'])
 
-// 3. LA LOGIQUE CSS : On calcule les couleurs Tailwind selon le "variant" choisi
+// 3. LA LOGIQUE CSS : On calcule les couleurs Tailwind selon le "variant" choisi ou la couleur personnalisée
 const buttonClasses = computed(() => {
   // Les classes communes à TOUS les boutons
   const baseClasses =
@@ -34,8 +38,11 @@ const buttonClasses = computed(() => {
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
   }
 
+  // Si une couleur personnalisée est fournie, l'utiliser ; sinon, utiliser le variant
+  const colorClasses = props.color || variants[props.variant]
+
   // On fusionne la base avec la couleur choisie
-  return `${baseClasses} ${variants[props.variant]}`
+  return `${baseClasses} ${colorClasses}`
 })
 </script>
 
