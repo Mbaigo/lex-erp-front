@@ -1,18 +1,22 @@
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useArticleStore } from '@/stores/articleStore'
+import { useStockMovementStore } from '@/stores/stockMovementStore'
+import { useCategorieStore } from '@/stores/useCategorieStore'
 import { articleService } from '@/services/catalog-api/ArticleService'
 import type { ArticleRequest, ArticleResponse } from '@/models/catalog-service-api'
+import type { TypeMovementEnum } from '@/models/stockMovement'
 
 import BaseTable from '@/components/ui/BaseTable.vue'
 import BasePagination from '@/components/ui/BasePaginationView.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseInput from '@/components/ui/BaseInputView.vue'
-import { useCategorieStore } from '@/stores/useCategorieStore'
 
 // --- STORES ---
 const articleStore = useArticleStore()
+const stockMovementStore = useStockMovementStore()
 const categorieStore = useCategorieStore()
 
 // --- STATE ---
@@ -24,7 +28,7 @@ const isSubmitting = ref(false)
 
 // 🔥 STOCK MODAL
 const isStockModalOpen = ref(false)
-const typeOperation = ref<'ENTREE' | 'SORTIE'>('ENTREE')
+const typeOperation = ref<TypeMovementEnum>('ENTREE')
 const articleSelectionne = ref<ArticleResponse | null>(null)
 
 const mouvement = ref({
@@ -40,7 +44,7 @@ const unites = ['METRE', 'PIECE', 'LITRE']
 const colonnes = [
   { key: 'reference', label: 'Référence' },
   { key: 'designation', label: 'Désignation' },
-  { key: 'stockInitial', label: 'Stock' },
+  { key: 'quantiteStock', label: 'Stock' }, // Remplacement de stockInitial par quantiteStock
   { key: 'prixUnitaire', label: 'Prix' },
   { key: 'uniteMesure', label: 'Unité' },
   { key: 'actions', label: '' },
@@ -50,11 +54,11 @@ const colonnes = [
 const formulaire = ref<ArticleRequest>({
   reference: '',
   designation: '',
-  stockInitial: 0,
+  stockInitial: 0, // Alignement avec le DTO Backend
   prixUnitaire: 0,
   seuilAlerte: 0,
-  uniteMesure: null as string | null,
-  categorieId: null as number | null,
+  uniteMesure: '' as string,
+  categorieId: 0,
   version: 0,
 })
 
@@ -73,7 +77,7 @@ const ouvrirModal = () => {
     prixUnitaire: 0,
     seuilAlerte: 0,
     uniteMesure: 'METRE',
-    categorieId: null,
+    categorieId: 0,
     version: 0,
   }
   isModalOpen.value = true
@@ -88,7 +92,6 @@ const enregistrer = async () => {
 
   isSubmitting.value = true
   try {
-    console.log('Enregistrement article', formulaire.value)
     await articleService.create(formulaire.value)
     await chargerArticles(pageCourante.value)
     isModalOpen.value = false
@@ -98,7 +101,7 @@ const enregistrer = async () => {
 }
 
 // --- MODAL STOCK ---
-const ouvrirModalStock = (article: ArticleResponse, type: 'ENTREE' | 'SORTIE') => {
+const ouvrirModalStock = (article: ArticleResponse, type: TypeMovementEnum) => {
   articleSelectionne.value = article
   typeOperation.value = type
 
@@ -121,21 +124,32 @@ const validerMouvement = async () => {
     return
   }
 
+  // Vérification de la disponibilité du stock en utilisant quantiteStock
   if (
     typeOperation.value === 'SORTIE' &&
-    mouvement.value.quantite > articleSelectionne.value.stockInitial
+    mouvement.value.quantite > articleSelectionne.value.stockActuel
   ) {
     alert('Stock insuffisant')
     return
   }
 
-  await articleStore.processStockMovement(
-    articleSelectionne.value.reference,
-    mouvement.value.quantite,
-    typeOperation.value === 'SORTIE',
-  )
+  isSubmitting.value = true
+  try {
+    // Construction du payload aligné avec StockMovementRequest
+    await stockMovementStore.processStockMovement({
+      articleId: articleSelectionne.value.id,
+      quantite: mouvement.value.quantite,
+      type: typeOperation.value,
+      // On envoie le prix uniquement s'il est renseigné pour éviter les 0 superflus
+      prixUnitaire: mouvement.value.prixUnitaire > 0 ? mouvement.value.prixUnitaire : undefined,
+      motif: mouvement.value.motif || undefined,
+      dateOperation: mouvement.value.dateOperation || undefined,
+    })
 
-  isStockModalOpen.value = false
+    isStockModalOpen.value = false
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // --- INIT ---
@@ -147,22 +161,18 @@ onMounted(async () => {
 
 <template>
   <div class="bg-white p-6 rounded-lg shadow-sm border">
-    <!-- HEADER -->
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">📦 Articles</h1>
       <BaseButton variant="primary" @click="ouvrirModal"> + Nouvel</BaseButton>
     </div>
 
-    <!-- TABLE -->
     <BaseTable :columns="colonnes" :data="articleStore.articles">
-      <!-- STOCK -->
-      <template #cell-stockInitial="{ row }">
+      <template #cell-quantiteStock="{ row }">
         <span :class="row.enAlerte ? 'text-red-600 font-bold' : ''">
-          {{ row.stockInitial }}
+          {{ row.quantiteStock }}
         </span>
       </template>
 
-      <!-- ACTIONS -->
       <template #cell-actions="{ row }">
         <div class="flex gap-2 justify-end">
           <BaseButton @click="ouvrirModalStock(row, 'ENTREE')">➕</BaseButton>
@@ -171,7 +181,6 @@ onMounted(async () => {
       </template>
     </BaseTable>
 
-    <!-- PAGINATION -->
     <BasePagination
       :current-page="pageCourante"
       :total-pages="Math.ceil(articleStore.totalElements / size)"
@@ -180,21 +189,19 @@ onMounted(async () => {
     />
   </div>
 
-  <!-- MODAL CREATION -->
-  <BaseModal :isOpen="isModalOpen" title="Créer un article" @close="isModalOpen = false">
+  <BaseModal v-if="isModalOpen" :isOpen="isModalOpen" title="Créer un article" @close="isModalOpen = false">
     <form class="space-y-4">
       <BaseInput v-model="formulaire.reference" label="Référence" />
       <BaseInput v-model="formulaire.designation" label="Désignation" />
 
       <div class="grid grid-cols-2 gap-4">
-        <BaseInput v-model.number="formulaire.stockInitial" type="number" label="Stock" />
+        <BaseInput v-model.number="formulaire.stockInitial" type="number" label="Stock initial" />
         <BaseInput v-model.number="formulaire.prixUnitaire" type="number" label="Prix unitaire" />
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <BaseInput v-model.number="formulaire.seuilAlerte" type="number" label="Seuil alerte" />
 
-        <!-- UNITE -->
         <div>
           <label class="text-sm font-medium">Unité</label>
           <select v-model="formulaire.uniteMesure" class="w-full border p-2 rounded">
@@ -204,7 +211,6 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- CATEGORIE -->
       <div>
         <label class="text-sm font-medium">Catégorie</label>
         <select v-model="formulaire.categorieId" class="w-full border p-2 rounded">
@@ -224,23 +230,29 @@ onMounted(async () => {
     </template>
   </BaseModal>
 
-  <!-- MODAL STOCK -->
   <BaseModal
+    v-if="isStockModalOpen"
     :isOpen="isStockModalOpen"
     :title="typeOperation === 'ENTREE' ? 'Approvisionnement' : 'Déstockage'"
     @close="isStockModalOpen = false"
   >
     <form class="space-y-4">
       <BaseInput v-model.number="mouvement.quantite" type="number" label="Quantité" />
-      <BaseInput v-model.number="mouvement.prixUnitaire" type="number" label="Prix unitaire" />
-      <BaseInput v-model="mouvement.motif" label="Motif" />
+
+      <BaseInput
+        v-if="typeOperation === 'ENTREE'"
+        v-model.number="mouvement.prixUnitaire"
+        type="number"
+        label="Prix unitaire d'achat (Optionnel)"
+      />
+
+      <BaseInput v-model="mouvement.motif" label="Motif (Optionnel)" />
       <BaseInput v-model="mouvement.dateOperation" type="date" label="Date opération" />
     </form>
 
     <template #footer>
       <BaseButton variant="secondary" @click="isStockModalOpen = false"> Annuler </BaseButton>
-
-      <BaseButton variant="primary" @click="validerMouvement"> Valider </BaseButton>
+      <BaseButton variant="primary" @click="validerMouvement" :isLoading="isSubmitting"> Valider </BaseButton>
     </template>
   </BaseModal>
 </template>
