@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia';
-import { articleService } from '@/services/catalog-api/ArticleService';
+import { defineStore } from 'pinia'
+import { articleService } from '@/services/catalog-api/ArticleService'
 import type { ArticleResponse, RestockItemRequest } from '@/models/catalog-service-api'
 
 export const useArticleStore = defineStore('articles', {
@@ -7,52 +7,62 @@ export const useArticleStore = defineStore('articles', {
     articles: [] as ArticleResponse[],
     alertes: [] as ArticleResponse[],
     totalElements: 0,
-    loading: false
+    totalPages: 0,
+    loading: false,
   }),
 
   actions: {
     async fetchArticles(page: number, size: number) {
-      this.loading = true;
-      try {
-        const data = await articleService.getAll(page, size);
-        this.articles = data.content;
-        this.totalElements = data.totalElements;
-      } finally {
-        this.loading = false;
-      }
-    },
+  this.loading = true;
+  try {
+    const data = await articleService.getAll(page, size);
+
+    // DEBUG ICI
+    console.log("Page reçue de Spring:", page);
+    console.log("Data:", data);
+
+    this.articles = data.content;
+    this.totalElements = data.page.totalElements;
+    // Vérifie si Spring envoie bien totalPages
+    this.totalPages = data.page.totalPages;
+  } catch (err) {
+    console.error("Erreur API:", err);
+  } finally {
+    this.loading = false;
+  }
+},
 
     async fetchAlerts() {
-      this.alertes = await articleService.getAlerts();
+      this.alertes = await articleService.getAlerts()
     },
 
     // --- AJOUTE CETTE MÉTHODE QUI MANQUAIT ---
     async processStockMovement(ref: string, qty: number, isDebit: boolean) {
-      this.loading = true;
+      this.loading = true
       try {
-        const movement = { quantite: qty, isDebit: isDebit, motif: '' };
-        const updated = await articleService.updateStock(ref, movement);
+        const movement = { quantite: qty, isDebit: isDebit, motif: '' }
+        const updated = await articleService.updateStock(ref, movement)
 
         // Mise à jour réactive de la liste locale
-        const index = this.articles.findIndex((a) => a.reference === ref);
+        const index = this.articles.findIndex((a) => a.reference === ref)
         if (index !== -1) {
-          this.articles[index] = updated;
+          this.articles[index] = updated
         }
-        await this.fetchAlerts();
+        await this.fetchAlerts()
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     async restoreStockAfterCancellation(items: RestockItemRequest[]) {
-      this.loading = true;
+      this.loading = true
       try {
-        await articleService.restockBatch(items);
-        await this.fetchAlerts();
+        await articleService.restockBatch(items)
+        await this.fetchAlerts()
         // Optionnel: recharger la page courante pour voir les chiffres bouger
       } finally {
-        this.loading = false;
+        this.loading = false
       }
-    }
-  }
-});
+    },
+  },
+})

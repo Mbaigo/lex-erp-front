@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useArticleStore } from '@/stores/articleStore'
@@ -19,16 +18,18 @@ const articleStore = useArticleStore()
 const stockMovementStore = useStockMovementStore()
 const categorieStore = useCategorieStore()
 
-// --- STATE ---
+// --- STATE GLOBALE ---
 const pageCourante = ref(0)
-const size = 10
+const size = 5
+// Variables pour la pagination
+//const totalElements = ref(0)
 
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 
-// 🔥 STOCK MODAL
+// --- STATE STOCK MODAL ---
 const isStockModalOpen = ref(false)
-const typeOperation = ref<TypeMovementEnum>('ENTREE')
+const typeOperation = ref<TypeMovementEnum>('ENTREE') // Piloté par le select du modal
 const articleSelectionne = ref<ArticleResponse | null>(null)
 
 const mouvement = ref({
@@ -38,23 +39,39 @@ const mouvement = ref({
   dateOperation: new Date().toISOString().substring(0, 10),
 })
 
+// --- STATE HISTORIQUE MODAL ---
+const isHistoryModalOpen = ref(false)
+const historyPage = ref(0)
+const historySize = 5
+
 const unites = ['METRE', 'PIECE', 'LITRE']
 
-// --- TABLE ---
+// --- TABLES COLONNES ---
 const colonnes = [
   { key: 'reference', label: 'Référence' },
   { key: 'designation', label: 'Désignation' },
-  { key: 'quantiteStock', label: 'Stock' }, // Remplacement de stockInitial par quantiteStock
+  { key: 'stockActuel', label: 'Stock Actuel' },
+  { key: 'stockInitial', label: 'Stock Initial' },
+  { key: 'enAlerte', label: 'En Alerte' },
   { key: 'prixUnitaire', label: 'Prix' },
   { key: 'uniteMesure', label: 'Unité' },
   { key: 'actions', label: '' },
+]
+
+const colonnesHistorique = [
+  { key: 'dateOperation', label: 'Date' },
+  { key: 'type', label: 'Type' },
+  { key: 'quantite', label: 'Qté' },
+  { key: 'stockAvantOperation', label: 'Avant' },
+  { key: 'stockApresOperation', label: 'Après' },
+  { key: 'motif', label: 'Motif' },
 ]
 
 // --- FORMULAIRE CREATION ---
 const formulaire = ref<ArticleRequest>({
   reference: '',
   designation: '',
-  stockInitial: 0, // Alignement avec le DTO Backend
+  stockInitial: 0,
   prixUnitaire: 0,
   seuilAlerte: 0,
   uniteMesure: '' as string,
@@ -62,8 +79,8 @@ const formulaire = ref<ArticleRequest>({
   version: 0,
 })
 
-// --- LOAD ---
-const chargerArticles = async (page = 0) => {
+// --- LOAD ARTICLES ---
+const chargerArticles = async (page: number) => {
   pageCourante.value = page
   await articleStore.fetchArticles(page, size)
 }
@@ -83,7 +100,6 @@ const ouvrirModal = () => {
   isModalOpen.value = true
 }
 
-// --- SAVE ARTICLE ---
 const enregistrer = async () => {
   if (!formulaire.value.uniteMesure || !formulaire.value.categorieId) {
     alert('Veuillez remplir tous les champs obligatoires')
@@ -101,9 +117,10 @@ const enregistrer = async () => {
 }
 
 // --- MODAL STOCK ---
-const ouvrirModalStock = (article: ArticleResponse, type: TypeMovementEnum) => {
+const ouvrirModalStock = (article: ArticleResponse) => {
   articleSelectionne.value = article
-  typeOperation.value = type
+  console.log('Article sélectionné pour mouvement :', article.id)
+  typeOperation.value = 'ENTREE' // Par défaut à l'ouverture, modifiable dans le formulaire
 
   mouvement.value = {
     quantite: 1,
@@ -115,7 +132,6 @@ const ouvrirModalStock = (article: ArticleResponse, type: TypeMovementEnum) => {
   isStockModalOpen.value = true
 }
 
-// --- VALIDATION STOCK ---
 const validerMouvement = async () => {
   if (!articleSelectionne.value) return
 
@@ -124,32 +140,45 @@ const validerMouvement = async () => {
     return
   }
 
-  // Vérification de la disponibilité du stock en utilisant quantiteStock
+  // La validation de stock s'adapte automatiquement si l'utilisateur sélectionne 'SORTIE'
   if (
     typeOperation.value === 'SORTIE' &&
     mouvement.value.quantite > articleSelectionne.value.stockActuel
   ) {
-    alert('Stock insuffisant')
+    alert('Stock insuffisant pour effectuer ce déstockage')
     return
   }
 
   isSubmitting.value = true
   try {
-    // Construction du payload aligné avec StockMovementRequest
     await stockMovementStore.processStockMovement({
       articleId: articleSelectionne.value.id,
       quantite: mouvement.value.quantite,
-      type: typeOperation.value,
-      // On envoie le prix uniquement s'il est renseigné pour éviter les 0 superflus
+      type: typeOperation.value, // Transmet la valeur sélectionnée (ENTREE ou SORTIE)
       prixUnitaire: mouvement.value.prixUnitaire > 0 ? mouvement.value.prixUnitaire : undefined,
       motif: mouvement.value.motif || undefined,
       dateOperation: mouvement.value.dateOperation || undefined,
     })
 
+    // Rafraîchir la liste pour voir les stocks mis à jour suite au calcul glissant du backend
+    await chargerArticles(pageCourante.value)
     isStockModalOpen.value = false
   } finally {
     isSubmitting.value = false
   }
+}
+
+// --- MODAL HISTORIQUE ---
+const chargerHistorique = async (page = 0) => {
+  if (!articleSelectionne.value) return
+  historyPage.value = page
+  await stockMovementStore.fetchArticleHistory(articleSelectionne.value.id, page, historySize)
+}
+
+const ouvrirModalHistorique = async (article: ArticleResponse) => {
+  articleSelectionne.value = article
+  isHistoryModalOpen.value = true
+  await chargerHistorique(0)
 }
 
 // --- INIT ---
@@ -167,29 +196,51 @@ onMounted(async () => {
     </div>
 
     <BaseTable :columns="colonnes" :data="articleStore.articles">
-      <template #cell-quantiteStock="{ row }">
-        <span :class="row.enAlerte ? 'text-red-600 font-bold' : ''">
-          {{ row.quantiteStock }}
+      <template #cell-stockActuel="{ row }">
+        <span>
+          {{ row.stockActuel }}
+        </span>
+      </template>
+
+      <template #cell-stockInitial="{ row }">
+        <span>{{ row.stockInitial }}</span>
+      </template>
+
+      <template #cell-enAlerte="{ row }">
+        <span
+          :class="row.stockActuel <= row.seuilAlerte ? 'text-red-600 font-bold' : 'text-gray-500'"
+        >
+          {{ row.stockActuel <= row.seuilAlerte ? '⚠️ Oui' : '✅ Non' }}
         </span>
       </template>
 
       <template #cell-actions="{ row }">
         <div class="flex gap-2 justify-end">
-          <BaseButton @click="ouvrirModalStock(row, 'ENTREE')">➕</BaseButton>
-          <BaseButton variant="danger" @click="ouvrirModalStock(row, 'SORTIE')">➖</BaseButton>
+          <BaseButton @click="ouvrirModalStock(row)" title="Nouveau mouvement">➕</BaseButton>
+          <BaseButton
+            variant="secondary"
+            @click="ouvrirModalHistorique(row)"
+            title="Voir l'historique"
+            >📜</BaseButton
+          >
         </div>
       </template>
     </BaseTable>
 
     <BasePagination
       :current-page="pageCourante"
-      :total-pages="Math.ceil(articleStore.totalElements / size)"
+      :total-pages="articleStore.totalPages"
       :total-elements="articleStore.totalElements"
       @change-page="chargerArticles"
     />
   </div>
 
-  <BaseModal v-if="isModalOpen" :isOpen="isModalOpen" title="Créer un article" @close="isModalOpen = false">
+  <BaseModal
+    v-if="isModalOpen"
+    :isOpen="isModalOpen"
+    title="Créer un article"
+    @close="isModalOpen = false"
+  >
     <form class="space-y-4">
       <BaseInput v-model="formulaire.reference" label="Référence" />
       <BaseInput v-model="formulaire.designation" label="Désignation" />
@@ -233,10 +284,23 @@ onMounted(async () => {
   <BaseModal
     v-if="isStockModalOpen"
     :isOpen="isStockModalOpen"
-    :title="typeOperation === 'ENTREE' ? 'Approvisionnement' : 'Déstockage'"
+    :title="typeOperation === 'ENTREE' ? 'Mouvement : Approvisionnement' : 'Mouvement : Déstockage'"
     @close="isStockModalOpen = false"
   >
     <form class="space-y-4">
+      <div>
+        <label class="text-sm font-medium block mb-1"
+          >Type de mouvement <span class="text-red-500">*</span></label
+        >
+        <select
+          v-model="typeOperation"
+          class="w-full border p-2 rounded bg-gray-50 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="ENTREE">🟢 Approvisionnement</option>
+          <option value="SORTIE">🔴 Déstockage</option>
+        </select>
+      </div>
+
       <BaseInput v-model.number="mouvement.quantite" type="number" label="Quantité" />
 
       <BaseInput
@@ -252,7 +316,54 @@ onMounted(async () => {
 
     <template #footer>
       <BaseButton variant="secondary" @click="isStockModalOpen = false"> Annuler </BaseButton>
-      <BaseButton variant="primary" @click="validerMouvement" :isLoading="isSubmitting"> Valider </BaseButton>
+      <BaseButton variant="primary" @click="validerMouvement" :isLoading="isSubmitting">
+        Valider
+      </BaseButton>
+    </template>
+  </BaseModal>
+
+  <BaseModal
+    v-if="isHistoryModalOpen"
+    :isOpen="isHistoryModalOpen"
+    :title="`Historique des mouvements - ${articleSelectionne?.designation}`"
+    @close="isHistoryModalOpen = false"
+  >
+    <div v-if="stockMovementStore.loading" class="text-center py-4 text-gray-500">
+      Chargement de l'historique...
+    </div>
+
+    <div v-else class="space-y-4">
+      <BaseTable :columns="colonnesHistorique" :data="stockMovementStore.movements">
+        <template #cell-type="{ row }">
+          <span
+            class="px-2 py-1 text-xs font-semibold rounded-full"
+            :class="
+              row.type === 'ENTREE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            "
+          >
+            {{ row.type }}
+          </span>
+        </template>
+
+        <template #cell-motif="{ row }">
+          <span class="text-gray-500 text-sm">{{ row.motif || '-' }}</span>
+        </template>
+      </BaseTable>
+
+      <BasePagination
+        v-if="stockMovementStore.totalElements > 0"
+        :current-page="historyPage"
+        :total-pages="Math.ceil(stockMovementStore.totalElements / historySize)"
+        :total-elements="stockMovementStore.totalElements"
+        @change-page="chargerHistorique"
+      />
+      <div v-else class="text-center text-sm text-gray-500 py-2">
+        Aucun mouvement enregistré pour cet article.
+      </div>
+    </div>
+
+    <template #footer>
+      <BaseButton variant="secondary" @click="isHistoryModalOpen = false"> Fermer </BaseButton>
     </template>
   </BaseModal>
 </template>

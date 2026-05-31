@@ -25,7 +25,7 @@ export const articleService = {
   },
 
   // Liste paginée
-  async getAll(page = 0, size = 10): Promise<{ content: ArticleResponse[], totalElements: number }> {
+  async getAll(page = 0, size = 5): Promise<Page<ArticleResponse>> {
     const { data } = await api.get('/articles', { params: { page, size } });
     return data; // Spring Page object
   },

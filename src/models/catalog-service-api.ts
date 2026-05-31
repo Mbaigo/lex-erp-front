@@ -27,6 +27,7 @@ export interface ArticleResponse {
   reference: string
   designation: string
   stockActuel: number // Remplace "stockInitial" (min: 0)
+  stockInitial: number // Ajouté pour conserver la valeur initiale, si nécessaire
   prixUnitaire: number // min: 0
   seuilAlerte: number // min: 0
   uniteMesure: string // ex: 'METRE', 'PIECE', 'LITRE'
@@ -87,10 +88,10 @@ export interface StockMovementRequest {
 
 export interface Page<T> {
   content: T[]
-  totalElements: number
-  totalPages: number
-  size: number
-  number: number
-  last: boolean
-  first: boolean
+  page: {
+    totalElements: number
+    totalPages: number
+    size: number
+    number: number
+  }
 }

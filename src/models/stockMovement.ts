@@ -4,7 +4,7 @@ export type TypeMovementEnum = 'ENTREE' | 'SORTIE'
 // ---------------------------------------------------------
 // DTO POUR L'ENVOI (Création d'un mouvement depuis le modal)
 // ---------------------------------------------------------
-export interface StockMovementRequest {
+export interface StockMovementRequestDTO {
   articleId: number
   quantite: number
   type: TypeMovementEnum
@@ -16,7 +16,7 @@ export interface StockMovementRequest {
 // ---------------------------------------------------------
 // DTO POUR LA LECTURE (Affichage de l'historique dans un tableau)
 // ---------------------------------------------------------
-export interface StockMovementResponse {
+export interface StockMovementResponseDTO {
   id: number
 
   // Données aplaties de l'article (gérées par MapStruct)
@@ -41,7 +41,7 @@ export interface StockMovementResponse {
 // INTERFACE DE PAGINATION (Si tu utilises un composant standard)
 // ---------------------------------------------------------
 export interface PageStockMovement {
-  content: StockMovementResponse[]
+  content: StockMovementResponseDTO[]
   totalElements: number
   totalPages: number
   size: number
